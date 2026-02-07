@@ -2,31 +2,68 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>釣果記録プロ：微調整・リセット対応</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>釣果記録プロ：完全版</title>
     <style>
         :root { --bg: #000; --accent: #00ff00; --btn: #007bff; --save: #28a745; --danger: #dc3545; }
-        body, html { margin: 0; padding: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); font-family: sans-serif; color: white; }
         
-        #viewport { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #111; overflow: hidden; }
-        video, canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
-        #canvas { display: none; touch-action: none; }
+        /* 全体のズームとスクロールを物理的に禁止 */
+        body, html { 
+            margin: 0; padding: 0; height: 100dvh; width: 100vw;
+            display: flex; flex-direction: column; 
+            overflow: hidden; background: var(--bg); 
+            font-family: sans-serif; color: white;
+            touch-action: none; /* ブラウザズームを完全に防止 */
+        }
+        
+        #viewport { 
+            flex: 1; position: relative; display: flex; 
+            align-items: center; justify-content: center; 
+            background: #111; overflow: hidden;
+        }
+
+        video, canvas { 
+            max-width: 100%; max-height: 100%; 
+            object-fit: contain; 
+            touch-action: none; /* キャンバス上でのズームを防止 */
+        }
+        #canvas { display: none; }
 
         #info-overlay { position: absolute; top: 15px; right: 15px; pointer-events: none; }
-        .size-badge { background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 12px; border: 2px solid var(--accent); color: var(--accent); font-size: 28px; font-weight: bold; }
+        .size-badge { 
+            background: rgba(0,0,0,0.8); padding: 10px 20px; 
+            border-radius: 12px; border: 2px solid var(--accent); 
+            color: var(--accent); font-size: 28px; font-weight: bold; 
+        }
 
-        .controls { background: #1a1a1a; display: flex; justify-content: center; gap: 8px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
-        button { padding: 12px 18px; font-size: 14px; border-radius: 8px; border: none; background: var(--btn); color: white; font-weight: bold; cursor: pointer; }
+        /* 操作パネル：はみ出さないよう高さを固定 */
+        .controls { 
+            height: 120px; background: #1a1a1a; 
+            display: flex; justify-content: center; align-content: center;
+            gap: 8px; padding: 10px; flex-wrap: wrap;
+            box-sizing: border-box;
+        }
+
+        button { 
+            padding: 10px 15px; font-size: 14px; border-radius: 8px; 
+            border: none; background: var(--btn); color: white; 
+            font-weight: bold; cursor: pointer; min-width: 80px;
+        }
         #save-panel-btn { background: var(--save); }
         #setup-btn { background: #6f42c1; }
 
+        /* モーダル */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; display: none; flex-direction: column; padding: 20px; overflow-y: auto; }
-        .modal-content { background: #222; padding: 25px; border-radius: 15px; border: 1px solid #444; }
+        .modal-content { background: #222; padding: 20px; border-radius: 15px; border: 1px solid #444; }
         input, textarea { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box; font-size: 16px; }
         
-        .album-item { border-bottom: 1px solid #333; padding: 15px 0; display: flex; gap: 12px; align-items: flex-start; }
-        .album-item img { width: 110px; height: 110px; object-fit: cover; border-radius: 6px; }
-        .album-data { flex: 1; font-size: 12px; }
+        .album-item { border-bottom: 1px solid #333; padding: 15px 0; display: flex; gap: 10px; }
+        .album-item img { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; }
+        
+        @media (orientation: landscape) {
+            .controls { height: 60px; padding: 5px; }
+            button { padding: 5px 12px; font-size: 12px; }
+        }
     </style>
 </head>
 <body>
@@ -48,11 +85,11 @@
 
     <div id="setup-modal" class="modal">
         <div class="modal-content">
-            <h3>メジャー倍率の設定</h3>
-            <p style="font-size:12px;">基準物の長さを入力し、端から端までドラッグしてください。</p>
-            <input type="number" id="base-length" value="10">
-            <button id="setup-confirm" style="width:100%; padding:15px; background:var(--save);">この距離で固定</button>
-            <button id="setup-reset-btn" style="width:100%; margin-top:10px; background:var(--danger);">倍率を初期化</button>
+            <h3>基準設定（重要）</h3>
+            <p style="font-size:12px; color:#ccc;">カメラを引いたりズームした後は必ず設定してください。10円玉などの長さを入力し、その両端をドラッグで指定します。</p>
+            <input type="number" id="base-length" value="2.35" step="0.01">
+            <button id="setup-confirm" style="width:100%; padding:15px; background:var(--save);">この距離で計算する</button>
+            <button id="setup-reset-btn" style="width:100%; margin-top:10px; background:var(--danger);">標準倍率に戻す</button>
             <button onclick="document.getElementById('setup-modal').style.display='none'" style="margin-top:10px; width:100%; background:#444;">閉じる</button>
         </div>
     </div>
@@ -64,7 +101,7 @@
             <textarea id="memo" placeholder="備考" rows="3"></textarea>
             <div style="display: flex; gap: 10px;">
                 <button id="final-save-btn" style="flex:1; background:var(--save);">保存</button>
-                <button id="download-btn" style="flex:1; background:#fd7e14;">画像</button>
+                <button id="download-btn" style="flex:1; background:#fd7e14;">画像保存</button>
             </div>
             <button onclick="document.getElementById('save-modal').style.display='none'" style="margin-top:10px; width:100%; background:#444;">戻る</button>
         </div>
@@ -76,7 +113,7 @@
             <button id="clear-all-btn" style="background:var(--danger); font-size:12px;">全消去</button>
         </div>
         <div id="album-list"></div>
-        <button onclick="document.getElementById('album-view').style.display='none'" style="margin-top:20px; padding:15px; background:#444;">戻る</button>
+        <button onclick="document.getElementById('album-view').style.display='none'" style="margin-top:20px; padding:15px; background:#444; width:100%;">戻る</button>
     </div>
 
     <script>
@@ -88,18 +125,13 @@
         let isDragging = false, dragPointIndex = -1;
         let currentAddr = "不明", tideData = "";
 
-        // --- 潮汐・位置情報 (変更なし) ---
+        // 潮汐・位置情報
         function getTideInfo() {
             const now = new Date();
             const baseDate = new Date(2026, 0, 19);
             const moonAge = ((now - baseDate) / (1000*60*60*24)) % 29.53;
-            let name = "中潮";
-            if (moonAge < 2 || moonAge >= 28 || (moonAge >= 14 && moonAge < 16)) name = "大潮";
-            else if (moonAge < 6 || (moonAge >= 11 && moonAge < 14) || (moonAge >= 16 && moonAge < 20) || moonAge >= 25) name = "中潮";
-            else if (moonAge < 9 || (moonAge >= 21 && moonAge < 24)) name = "小潮";
-            else if (moonAge < 10 || moonAge >= 24) name = "長潮";
-            else name = "若潮";
-
+            let name = (moonAge < 2 || moonAge >= 28 || (moonAge >= 14 && moonAge < 16)) ? "大潮" : 
+                       (moonAge < 6 || (moonAge >= 11 && moonAge < 14) || (moonAge >= 16 && moonAge < 20) || moonAge >= 25) ? "中潮" : "小潮";
             const hours = now.getHours() + (now.getMinutes()/60);
             const phase = Math.sin((hours/12.4) * Math.PI * 2);
             const isRising = Math.sin(((hours+0.1)/12.4) * Math.PI * 2) > phase;
@@ -115,7 +147,7 @@
             } catch(e) {}
         });
 
-        // --- カメラ・撮影 ---
+        // カメラ・撮影
         document.getElementById('camera-btn').addEventListener('click', async () => {
             const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
             video.srcObject = s; video.style.display = 'block'; canvas.style.display = 'none';
@@ -130,7 +162,7 @@
             tideData = getTideInfo();
         });
 
-        // --- ドラッグ微調整ロジック ---
+        // ドラッグ計測ロジック
         function getXY(e) {
             const r = canvas.getBoundingClientRect();
             const sx = canvas.width / r.width, sy = canvas.height / r.height;
@@ -142,10 +174,7 @@
         canvas.addEventListener('pointerdown', (e) => {
             if(!currentImage && document.getElementById('setup-modal').style.display !== 'flex') return;
             const pos = getXY(e);
-            
-            // 既存の点に近いかチェック（微調整モード）
             dragPointIndex = points.findIndex(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 40);
-            
             if (dragPointIndex === -1) {
                 if (points.length >= 2) points = [];
                 points.push(pos);
@@ -161,10 +190,7 @@
             draw();
         });
 
-        canvas.addEventListener('pointerup', () => {
-            isDragging = false;
-            dragPointIndex = -1;
-        });
+        canvas.addEventListener('pointerup', () => { isDragging = false; dragPointIndex = -1; });
 
         function draw() {
             if(!currentImage) { ctx.clearRect(0,0,canvas.width,canvas.height); return; }
@@ -173,39 +199,34 @@
                 ctx.drawImage(img, 0, 0);
                 points.forEach((p, i) => {
                     ctx.fillStyle = (i === dragPointIndex) ? 'yellow' : 'red';
-                    ctx.beginPath(); ctx.arc(p.x, p.y, 12, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, Math.PI*2); ctx.fill();
                 });
                 if(points.length === 2){
-                    ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 8; ctx.beginPath();
+                    ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 10; ctx.beginPath();
                     ctx.moveTo(points[0].x, points[0].y); ctx.lineTo(points[1].x, points[1].y); ctx.stroke();
                     sizeDisplay.innerText = (Math.hypot(points[1].x-points[0].x, points[1].y-points[0].y)*ratio).toFixed(1) + " cm";
                 }
             };
         }
 
-        // --- 設定リセット ---
-        document.getElementById('setup-btn').addEventListener('click', () => {
-            document.getElementById('setup-modal').style.display = 'flex';
-        });
+        // 設定
         document.getElementById('setup-confirm').addEventListener('click', () => {
             if(points.length === 2){
                 ratio = parseFloat(document.getElementById('base-length').value) / Math.hypot(points[1].x-points[0].x, points[1].y-points[0].y);
-                alert("基準を設定しました"); document.getElementById('setup-modal').style.display='none';
+                alert("この写真の距離を基準に設定しました。");
+                document.getElementById('setup-modal').style.display='none';
                 points = []; draw();
-            } else { alert("2点を指定してください"); }
+            } else { alert("基準物の両端をタップしてください"); }
         });
-        document.getElementById('setup-reset-btn').addEventListener('click', () => {
-            ratio = 0.15;
-            alert("倍率を初期状態にリセットしました");
-            document.getElementById('setup-modal').style.display='none';
-        });
+        document.getElementById('setup-reset-btn').addEventListener('click', () => { ratio = 0.15; alert("リセットしました"); });
 
-        // --- 保存・履歴ロジック (変更なし) ---
+        // 保存・履歴
+        document.getElementById('setup-btn').addEventListener('click', () => document.getElementById('setup-modal').style.display = 'flex');
         document.getElementById('save-panel-btn').addEventListener('click', () => document.getElementById('save-modal').style.display = 'flex');
         document.getElementById('final-save-btn').addEventListener('click', () => {
             const item = { id: Date.now(), img: canvas.toDataURL('image/jpeg'), size: sizeDisplay.innerText, fish: document.getElementById('fish-type').value || "不明", memo: document.getElementById('memo').value || "", tide: tideData, addr: currentAddr, date: new Date().toLocaleString() };
-            const h = JSON.parse(localStorage.getItem('fish_v4') || '[]');
-            h.unshift(item); localStorage.setItem('fish_v4', JSON.stringify(h));
+            const h = JSON.parse(localStorage.getItem('fish_v5') || '[]');
+            h.unshift(item); localStorage.setItem('fish_v5', JSON.stringify(h));
             alert('保存しました'); document.getElementById('save-modal').style.display = 'none';
         });
         document.getElementById('download-btn').addEventListener('click', () => {
@@ -213,17 +234,17 @@
         });
         document.getElementById('album-btn').addEventListener('click', () => {
             const list = document.getElementById('album-list'); list.innerHTML = '';
-            const h = JSON.parse(localStorage.getItem('fish_v4') || '[]');
+            const h = JSON.parse(localStorage.getItem('fish_v5') || '[]');
             h.forEach(i => {
                 const d = document.createElement('div'); d.className = 'album-item';
-                d.innerHTML = `<img src="${i.img}"><div class="album-data"><b>${i.fish} (${i.size})</b><br>📅 ${i.date}<br>🌊 ${i.tide}<br>📍 ${i.addr}<br>📝 ${i.memo}</div><button onclick="del(${i.id})" style="background:var(--danger); padding:5px;">×</button>`;
+                d.innerHTML = `<img src="${i.img}"><div style="font-size:12px;"><b>${i.fish} (${i.size})</b><br>📅 ${i.date}<br>🌊 ${i.tide}<br>📍 ${i.addr}<br>📝 ${i.memo}</div><button onclick="del(${i.id})" style="background:var(--danger); padding:5px;">×</button>`;
                 list.appendChild(d);
             });
             document.getElementById('album-view').style.display = 'flex';
         });
-        window.del = (id) => { if(confirm('消去しますか？')){ let h = JSON.parse(localStorage.getItem('fish_v4')); h = h.filter(x => x.id !== id); localStorage.setItem('fish_v4', JSON.stringify(h)); document.getElementById('album-btn').click(); } };
+        window.del = (id) => { if(confirm('消去しますか？')){ let h = JSON.parse(localStorage.getItem('fish_v5')); h = h.filter(x => x.id !== id); localStorage.setItem('fish_v5', JSON.stringify(h)); document.getElementById('album-btn').click(); } };
         document.getElementById('reset-btn').addEventListener('click', () => { points = []; draw(); sizeDisplay.innerText = "0.0 cm"; });
-        document.getElementById('clear-all-btn').addEventListener('click', () => { if(confirm('全消去しますか？')) { localStorage.removeItem('fish_v4'); document.getElementById('album-view').style.display='none'; } });
+        document.getElementById('clear-all-btn').addEventListener('click', () => { if(confirm('全消去しますか？')) { localStorage.removeItem('fish_v5'); document.getElementById('album-view').style.display='none'; } });
     </script>
 </body>
 </html>
