@@ -2,250 +2,184 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fishing Log Pro Max - White Final</title>
-    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>釣果記録プロ（保存・削除対応）</title>
     <style>
-        /* 基本設定：夜釣りでのライト代わりになる白背景 */
-        body { margin: 0; font-family: -apple-system, sans-serif; background: #ffffff; color: #1a1a1a; overflow: hidden; }
-        #app { display: flex; flex-direction: column; height: 100vh; }
+        :root { --bg: #000; --accent: #00ff00; --btn: #007bff; --danger: #dc3545; }
+        body, html { margin: 0; padding: 0; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); font-family: sans-serif; color: white; }
         
-        /* 入力パネル */
-        .input-panel { background: #f8f9fa; padding: 10px; display: flex; flex-direction: column; gap: 8px; z-index: 20; border-bottom: 2px solid #dee2e6; }
-        input[type="text"], textarea { 
-            width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #ced4da; 
-            background: #ffffff; color: #000; font-size: 16px; outline: none; box-sizing: border-box;
-        }
-        textarea { height: 50px; font-size: 14px; resize: none; }
+        #viewport { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #111; overflow: hidden; }
+        video, canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+        #canvas { display: none; touch-action: none; }
 
-        /* カメラエリア */
-        #camera-container { position: relative; flex: 1; background: #000; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        
-        /* メジャー（Ruler） */
-        #ruler {
-            position: absolute; width: 200px; height: 60px; top: 50%; left: 50%;
-            border: 2px solid #00b894; border-right: 4px solid #d63031;
-            background: rgba(0, 184, 148, 0.15);
-            background-image: linear-gradient(90deg, #00b894 2px, transparent 2px);
-            background-size: 10% 40%; background-repeat: repeat-x; background-position: bottom;
-            touch-action: none; cursor: move;
-        }
-        #size-label { position: absolute; top: -35px; left: 50%; transform: translateX(-50%); background: #d63031; color: white; padding: 4px 15px; border-radius: 15px; font-weight: bold; font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        #info-overlay { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; flex-direction: column; gap: 5px; pointer-events: none; }
+        .badge { background: rgba(0,0,0,0.7); padding: 5px 12px; border-radius: 8px; font-size: 12px; border: 1px solid #444; width: fit-content; }
+        #size-display { color: var(--accent); font-size: 20px; font-weight: bold; }
 
-        /* 操作UI */
-        .controls { padding: 15px; display: flex; justify-content: space-around; background: #f1f3f5; border-top: 2px solid #dee2e6; z-index: 20; }
-        button { padding: 12px 15px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; }
-        button:active { opacity: 0.7; }
-        .btn-capture { background: #d63031; flex: 2; margin: 0 10px; font-size: 18px; }
-        .btn-settings { background: #636e72; flex: 1; }
-        .btn-album { background: #00b894; flex: 1; }
+        .controls { background: #1a1a1a; display: flex; justify-content: center; gap: 8px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
+        button { padding: 10px 18px; font-size: 14px; border-radius: 6px; border: none; background: var(--btn); color: white; font-weight: bold; cursor: pointer; }
+        #save-btn { background: #28a745; }
+        #download-btn { background: #fd7e14; }
 
         /* アルバム画面 */
-        #album { display: none; position: fixed; inset: 0; background: #ffffff; padding: 15px; overflow-y: auto; z-index: 100; flex-direction: column; }
-        .album-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        #album-view { position: fixed; inset: 0; background: #111; z-index: 1000; display: none; flex-direction: column; padding: 20px; overflow-y: auto; }
+        .album-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .album-item { border-bottom: 1px solid #333; padding: 15px 0; display: flex; gap: 10px; align-items: center; }
+        .album-item img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+        .del-btn { background: var(--danger); padding: 5px 10px; font-size: 12px; margin-left: auto; }
         
-        .log-card { background: #ffffff; border-radius: 15px; overflow: hidden; border: 1px solid #dee2e6; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-width: 500px; margin-inline: auto; }
-        .card-image-container { position: relative; width: 100%; height: 200px; }
-        .card-image-container img { width: 100%; height: 100%; object-fit: cover; }
-        .fish-size-badge { position: absolute; top: 10px; right: 10px; background: #d63031; color: white; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 14px; }
-        .fish-name-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.8)); color: white; padding: 25px 15px 10px; font-size: 20px; font-weight: bold; }
-        
-        .log-card-body { padding: 15px; }
-        .info-row { display: flex; align-items: flex-start; margin-bottom: 8px; font-size: 13px; color: #444; }
-        .info-icon { min-width: 24px; }
-        .tide-text { color: #0984e3; font-weight: bold; }
-        .memo-container { background: #f8f9fa; border-radius: 8px; padding: 10px; margin-top: 10px; border-left: 4px solid #00b894; border: 1px solid #eee; font-size: 13px; color: #555; }
-        
-        /* 保存・削除ボタン */
-        .btn-download { margin-top: 10px; background: #0984e3; width: 100%; padding: 10px; border-radius: 8px; font-size: 14px; }
-        .btn-delete { background: transparent; color: #ff7675; border: 1px solid #fab1a0; padding: 8px; border-radius: 8px; margin-top: 10px; width: 100%; font-size: 12px; }
-
-        /* 設定画面 */
-        #settings-modal { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 200; align-items: center; justify-content: center; }
-        .config-box { background: #fff; padding: 25px; border-radius: 20px; text-align: center; width: 85%; border: 1px solid #eee; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        @media (orientation: landscape) { .controls { padding: 5px; } button { padding: 5px 12px; font-size: 12px; } }
     </style>
 </head>
 <body>
 
-<div id="app">
-    <div class="input-panel">
-        <input type="text" id="fish-name" placeholder="魚種 (例: シーバス)">
-        <textarea id="fish-memo" placeholder="備考 (ポイントの状況など)"></textarea>
-    </div>
-
-    <div id="camera-container">
+    <div id="viewport">
         <video id="video" autoplay playsinline></video>
-        <div id="ruler" data-x="0" data-y="0">
-            <div id="size-label">20.0 cm</div>
+        <canvas id="canvas"></canvas>
+        <div id="info-overlay">
+            <div id="addr-info" class="badge">📍 住所: 取得中...</div>
+            <div id="tide-info" class="badge">🌊 潮汐: 計算中...</div>
+            <div id="size-display" class="badge">0.0 cm</div>
         </div>
     </div>
 
     <div class="controls">
-        <button class="btn-settings" onclick="openSettings()">⚙️設定</button>
-        <button class="btn-capture" onclick="captureFish()">記録する</button>
-        <button class="btn-album" onclick="toggleAlbum()">📦アルバム</button>
+        <button id="camera-btn">カメラ</button>
+        <button id="capture-btn">撮影</button>
+        <button id="download-btn" style="display:none;">本体保存</button>
+        <button id="save-btn" style="display:none;">履歴保存</button>
+        <button id="reset-btn">消去</button>
+        <button id="album-btn">履歴</button>
     </div>
-</div>
 
-<div id="album">
-    <div class="album-header">
-        <h2 style="margin:0;">釣果アルバム</h2>
-        <button onclick="toggleAlbum()" style="background:#636e72;">閉じる</button>
+    <div id="album-view">
+        <div class="album-header">
+            <h2>釣果履歴</h2>
+            <button id="clear-all-btn" style="background:var(--danger);">全削除</button>
+        </div>
+        <div id="album-list"></div>
+        <button onclick="document.getElementById('album-view').style.display='none'" style="margin-top:20px; padding:15px; background:#444; width:100%;">閉じる</button>
     </div>
-    <div id="album-list"></div>
-</div>
 
-<div id="settings-modal">
-    <div class="config-box">
-        <h3>📏 サイズ校正</h3>
-        <p style="font-size:12px; color:#666; margin-bottom:20px;">緑の枠を<b>10cm</b>に合わせて保存してください</p>
-        <button style="background:#00b894; width:100%; margin-bottom:10px; padding:15px;" onclick="saveSettings()">設定を保存</button>
-        <button style="background:#ff7675; width:100%; font-size:12px; margin-bottom:15px; padding:10px;" onclick="resetSettings()">校正をリセット</button>
-        <button style="background:none; color:#999;" onclick="closeSettings()">戻る</button>
-    </div>
-</div>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let points = [], currentImage = null, currentAddr = "不明", tideStatus = "";
 
-<script>
-    const db = new Dexie("FishingLogDB");
-    db.version(3).stores({ logs: '++id, fishName, timestamp, location, address, tide, memo, size, photo' });
-
-    let pxPerCm = localStorage.getItem('pxPerCm') || 20;
-    let currentScale = 1;
-    let currentRotation = 0;
-
-    const video = document.getElementById('video');
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(s => video.srcObject = s)
-        .catch(e => alert("カメラ起動失敗"));
-
-    // PC用ホイール操作
-    document.getElementById('ruler').addEventListener('wheel', e => {
-        e.preventDefault();
-        currentScale *= (e.deltaY > 0 ? 0.98 : 1.02);
-        updateRuler(document.getElementById('ruler'));
-    }, { passive: false });
-
-    interact('#ruler').draggable({ onmove: e => {
-        const t = e.target;
-        const x = (parseFloat(t.getAttribute('data-x')) || 0) + e.dx;
-        const y = (parseFloat(t.getAttribute('data-y')) || 0) + e.dy;
-        updateRuler(t, x, y);
-    }}).gesturable({ onmove: e => {
-        currentScale *= (1 + e.ds); currentRotation += e.da; updateRuler(e.target);
-    }});
-
-    function updateRuler(t, x, y) {
-        x = x !== undefined ? x : parseFloat(t.getAttribute('data-x'));
-        y = y !== undefined ? y : parseFloat(t.getAttribute('data-y'));
-        t.style.transform = `translate(${x}px, ${y}px) scale(${currentScale}) rotate(${currentRotation}deg)`;
-        t.setAttribute('data-x', x); t.setAttribute('data-y', y);
-        const cm = (200 * currentScale / pxPerCm).toFixed(1);
-        document.getElementById('size-label').innerText = cm + " cm";
-    }
-
-    async function getAddress(lat, lon) {
-        try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ja`);
-            const data = await res.json();
-            const a = data.address;
-            const pref = a.province || a.prefecture || "";
-            const city = a.city || a.town || a.village || a.city_district || "";
-            const suburb = a.suburb || a.neighbourhood || a.quarter || "";
-            const road = a.road || "";
-            let addr = `${pref} ${city} ${suburb}`.trim();
-            if (!suburb && road) addr += ` ${road}付近`;
-            return addr || "住所不明";
-        } catch { return "取得失敗"; }
-    }
-
-    function getTideInfo() {
-        const hours = new Date().getHours() + new Date().getMinutes() / 60;
-        const cycle = (hours % 12.4) / 12.4;
-        if (cycle < 0.06 || cycle >= 0.94) return "満潮（潮止まり）";
-        if (cycle < 0.19) return "下げ三分";
-        if (cycle < 0.31) return "下げ五分";
-        if (cycle < 0.44) return "下げ七分";
-        if (cycle < 0.56) return "干潮（潮止まり）";
-        if (cycle < 0.69) return "上げ三分";
-        if (cycle < 0.81) return "上げ五分";
-        return "上げ七分";
-    }
-
-    window.openSettings = () => document.getElementById('settings-modal').style.display = 'flex';
-    window.closeSettings = () => document.getElementById('settings-modal').style.display = 'none';
-    window.saveSettings = () => {
-        pxPerCm = (200 * currentScale) / 10;
-        localStorage.setItem('pxPerCm', pxPerCm);
-        alert("保存完了");
-        closeSettings();
-    };
-    window.resetSettings = () => {
-        if(confirm("リセットしますか？")) { localStorage.removeItem('pxPerCm'); location.reload(); }
-    };
-
-    window.captureFish = async function() {
-        const name = document.getElementById('fish-name').value || "不明な魚";
-        const memo = document.getElementById('fish-memo').value || "";
+        // 位置情報取得
         navigator.geolocation.getCurrentPosition(async (pos) => {
-            const lat = pos.coords.latitude; const lon = pos.coords.longitude;
-            const address = await getAddress(lat, lon);
-            const tide = getTideInfo();
-            const cm = (200 * currentScale / pxPerCm).toFixed(1);
-            const canvas = document.createElement('canvas');
+            const { latitude, longitude } = pos.coords;
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18`);
+                const data = await res.json();
+                currentAddr = data.address.city || data.address.town || data.address.province || "不明";
+                document.getElementById('addr-info').innerText = "📍 " + currentAddr;
+            } catch (e) { }
+        });
+
+        // 潮汐計算
+        function calculateTide() {
+            const now = new Date();
+            const hours = now.getHours() + (now.getMinutes() / 60);
+            const phase = Math.sin((hours / 12.4) * Math.PI * 2);
+            const isRising = Math.sin(((hours + 0.1) / 12.4) * Math.PI * 2) > phase;
+            const percentage = Math.abs(Math.round(phase * 10));
+            tideStatus = `${isRising ? '上げ' : '下げ'}${percentage === 0 ? '止まり' : percentage + '分'}`;
+            document.getElementById('tide-info').innerText = `🌊 ${tideStatus}`;
+        }
+        calculateTide();
+
+        // カメラ・撮影
+        document.getElementById('camera-btn').addEventListener('click', async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            video.srcObject = stream;
+            video.style.display = 'block'; canvas.style.display = 'none';
+            document.querySelectorAll('#save-btn, #download-btn').forEach(b => b.style.display = 'none');
+        });
+
+        document.getElementById('capture-btn').addEventListener('click', () => {
             canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            currentImage = canvas.toDataURL('image/jpeg');
+            video.style.display = 'none'; canvas.style.display = 'block';
+            document.querySelectorAll('#save-btn, #download-btn').forEach(b => b.style.display = 'inline-block');
+        });
 
-            await db.logs.add({
-                fishName: name, timestamp: new Date().toLocaleString('ja-JP'),
-                address: address, tide: tide, memo: memo, size: cm,
-                photo: canvas.toDataURL('image/jpeg', 0.8)
+        // 計測描画
+        canvas.addEventListener('pointerdown', (e) => {
+            if (!currentImage) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+            if (points.length >= 2) points = [];
+            points.push({ x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY });
+            draw();
+        });
+
+        function draw() {
+            const img = new Image(); img.src = currentImage;
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+                points.forEach(p => { ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI*2); ctx.fill(); });
+                if (points.length === 2) {
+                    ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 8; ctx.beginPath();
+                    ctx.moveTo(points[0].x, points[0].y); ctx.lineTo(points[1].x, points[1].y); ctx.stroke();
+                    const dist = Math.sqrt(Math.pow(points[1].x-points[0].x,2) + Math.pow(points[1].y-points[0].y,2));
+                    document.getElementById('size-display').innerText = (dist * 0.15).toFixed(1) + " cm";
+                }
+            };
+        }
+
+        // 本体保存
+        document.getElementById('download-btn').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = `fish_record_${Date.now()}.jpg`;
+            link.href = canvas.toDataURL('image/jpeg');
+            link.click();
+        });
+
+        // 履歴保存
+        document.getElementById('save-btn').addEventListener('click', () => {
+            const data = { id: Date.now(), img: canvas.toDataURL('image/jpeg'), size: document.getElementById('size-display').innerText, tide: tideStatus, addr: currentAddr, date: new Date().toLocaleString() };
+            const history = JSON.parse(localStorage.getItem('fishing_pro_v2') || '[]');
+            history.unshift(data);
+            localStorage.setItem('fishing_pro_v2', JSON.stringify(history));
+            alert('履歴に保存しました');
+        });
+
+        // アルバム表示・削除
+        const renderAlbum = () => {
+            const list = document.getElementById('album-list');
+            list.innerHTML = '';
+            const history = JSON.parse(localStorage.getItem('fishing_pro_v2') || '[]');
+            history.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'album-item';
+                div.innerHTML = `<img src="${item.img}"><div style="font-size:11px"><p>📅 ${item.date}</p><p>📏 ${item.size} / 🌊 ${item.tide}</p><p>📍 ${item.addr}</p></div><button class="del-btn" onclick="deleteItem(${item.id})">削除</button>`;
+                list.appendChild(div);
             });
-            alert("記録しました！");
-            document.getElementById('fish-name').value = ""; document.getElementById('fish-memo').value = "";
-        }, () => alert("位置情報を許可してください"));
-    };
+        };
 
-    window.toggleAlbum = async function() {
-        const el = document.getElementById('album');
-        if (el.style.display === 'none' || !el.style.display) {
-            await loadAlbum(); el.style.display = 'flex';
-        } else { el.style.display = 'none'; }
-    };
+        window.deleteItem = (id) => {
+            if(!confirm('この記録を削除しますか？')) return;
+            let history = JSON.parse(localStorage.getItem('fishing_pro_v2') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('fishing_pro_v2', JSON.stringify(history));
+            renderAlbum();
+        };
 
-    async function loadAlbum() {
-        const listEl = document.getElementById('album-list');
-        const logs = await db.logs.toArray();
-        if (logs.length === 0) { listEl.innerHTML = "<p style='text-align:center; color:#999; margin-top:50px;'>記録なし</p>"; return; }
-        listEl.innerHTML = logs.reverse().map(l => `
-            <div class="log-card">
-                <div class="card-image-container">
-                    <img src="${l.photo}">
-                    <div class="fish-size-badge">${l.size} cm</div>
-                    <div class="fish-name-overlay">${l.fishName}</div>
-                </div>
-                <div class="log-card-body">
-                    <div class="info-row"><span class="info-icon">📅</span><span>${l.timestamp}</span></div>
-                    <div class="info-row"><span class="info-icon">📍</span><span>${l.address}</span></div>
-                    <div class="info-row"><span class="info-icon">🌊</span><span class="tide-text">${l.tide}</span></div>
-                    ${l.memo ? `<div class="memo-container">${l.memo}</div>` : ''}
-                    <button class="btn-download" onclick="downloadPhoto('${l.photo}', '${l.fishName}_${l.size}cm')">📲 スマホに保存</button>
-                    <button class="btn-delete" onclick="deleteLog(${l.id})">削除</button>
-                </div>
-            </div>`).join('');
-    }
+        document.getElementById('clear-all-btn').addEventListener('click', () => {
+            if(!confirm('すべての履歴を削除しますか？')) return;
+            localStorage.removeItem('fishing_pro_v2');
+            renderAlbum();
+        });
 
-    window.downloadPhoto = (dataUrl, fileName) => {
-        const a = document.createElement('a'); a.href = dataUrl; a.download = `${fileName}.jpg`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(() => alert("ダウンロードを開始しました"), 100);
-    };
+        document.getElementById('album-btn').addEventListener('click', () => {
+            renderAlbum();
+            document.getElementById('album-view').style.display = 'flex';
+        });
 
-    window.deleteLog = async (id) => {
-        if(confirm("削除しますか？")) { await db.logs.delete(id); loadAlbum(); }
-    };
-</script>
+        document.getElementById('reset-btn').addEventListener('click', () => { points = []; draw(); document.getElementById('size-display').innerText = "0.0 cm"; });
+    </script>
 </body>
-
 </html>
