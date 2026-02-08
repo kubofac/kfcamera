@@ -3,67 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>釣果記録プロ：完全版</title>
+    <title>釣果記録：クイック登録対応版</title>
     <style>
-        :root { --bg: #000; --accent: #00ff00; --btn: #007bff; --save: #28a745; --danger: #dc3545; }
+        :root { --bg: #000; --accent: #00ff00; --calib: #ffc107; --measure: #007bff; --save: #28a745; --danger: #dc3545; --quick: #6f42c1; }
+        body, html { margin: 0; padding: 0; height: 100dvh; width: 100vw; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); font-family: sans-serif; color: white; touch-action: none; }
         
-        /* 全体のズームとスクロールを物理的に禁止 */
-        body, html { 
-            margin: 0; padding: 0; height: 100dvh; width: 100vw;
-            display: flex; flex-direction: column; 
-            overflow: hidden; background: var(--bg); 
-            font-family: sans-serif; color: white;
-            touch-action: none; /* ブラウザズームを完全に防止 */
-        }
-        
-        #viewport { 
-            flex: 1; position: relative; display: flex; 
-            align-items: center; justify-content: center; 
-            background: #111; overflow: hidden;
-        }
-
-        video, canvas { 
-            max-width: 100%; max-height: 100%; 
-            object-fit: contain; 
-            touch-action: none; /* キャンバス上でのズームを防止 */
-        }
+        #viewport { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #111; overflow: hidden; }
+        video, canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
         #canvas { display: none; }
 
-        #info-overlay { position: absolute; top: 15px; right: 15px; pointer-events: none; }
-        .size-badge { 
-            background: rgba(0,0,0,0.8); padding: 10px 20px; 
-            border-radius: 12px; border: 2px solid var(--accent); 
-            color: var(--accent); font-size: 28px; font-weight: bold; 
-        }
+        #mode-label { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 20px; font-size: 13px; border: 1px solid white; z-index: 10; }
+        #info-overlay { position: absolute; top: 15px; right: 15px; pointer-events: none; z-index: 10; }
+        .size-badge { background: rgba(0,0,0,0.9); padding: 10px 20px; border-radius: 12px; border: 2px solid var(--accent); color: var(--accent); font-size: 28px; font-weight: bold; min-width: 100px; text-align: center; }
 
-        /* 操作パネル：はみ出さないよう高さを固定 */
-        .controls { 
-            height: 120px; background: #1a1a1a; 
-            display: flex; justify-content: center; align-content: center;
-            gap: 8px; padding: 10px; flex-wrap: wrap;
-            box-sizing: border-box;
-        }
+        .controls { background: #1a1a1a; display: flex; justify-content: center; gap: 5px; padding: 10px; flex-wrap: wrap; box-sizing: border-box; }
+        button { padding: 12px 5px; font-size: 12px; border-radius: 8px; border: none; color: white; font-weight: bold; cursor: pointer; min-width: 70px; -webkit-tap-highlight-color: transparent; }
+        
+        #camera-btn { background: #444; }
+        #capture-btn { background: #fff; color: #000; }
+        #clear-btn { background: #555; }
+        #quick-save-btn { background: var(--quick); display: none; } /* クイック登録 */
+        #calibrate-mode-btn { background: var(--calib); color: #000; display: none; }
+        #measure-mode-btn { background: var(--measure); display: none; }
+        #save-panel-btn { background: var(--save); display: none; border: 1px solid white; }
 
-        button { 
-            padding: 10px 15px; font-size: 14px; border-radius: 8px; 
-            border: none; background: var(--btn); color: white; 
-            font-weight: bold; cursor: pointer; min-width: 80px;
-        }
-        #save-panel-btn { background: var(--save); }
-        #setup-btn { background: #6f42c1; }
-
-        /* モーダル */
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 1000; display: none; flex-direction: column; padding: 20px; overflow-y: auto; }
-        .modal-content { background: #222; padding: 20px; border-radius: 15px; border: 1px solid #444; }
-        input, textarea { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box; font-size: 16px; }
-        
-        .album-item { border-bottom: 1px solid #333; padding: 15px 0; display: flex; gap: 10px; }
-        .album-item img { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; }
-        
-        @media (orientation: landscape) {
-            .controls { height: 60px; padding: 5px; }
-            button { padding: 5px 12px; font-size: 12px; }
-        }
+        .modal-content { background: #222; padding: 20px; border-radius: 15px; border: 1px solid #444; margin-top: 20px; }
+        input, textarea { width: 100%; padding: 12px; background: #333; color: white; border: 1px solid #555; border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 10px; }
+
+        .album-item { display: flex; background: #1a1a1a; border-radius: 10px; margin-bottom: 12px; border: 1px solid #333; overflow: hidden; height: 120px; }
+        .album-img { width: 120px; height: 120px; object-fit: cover; }
+        .album-info { flex: 1; padding: 8px; font-size: 11px; display: flex; flex-direction: column; justify-content: space-between; }
     </style>
 </head>
 <body>
@@ -71,180 +41,201 @@
     <div id="viewport">
         <video id="video" autoplay playsinline></video>
         <canvas id="canvas"></canvas>
-        <div id="info-overlay"><div id="size-display" class="size-badge">0.0 cm</div></div>
+        <div id="mode-label">1. 「カメラ」→「撮影」</div>
+        <div id="info-overlay"><div id="size-display" class="size-badge">--- cm</div></div>
     </div>
 
     <div class="controls">
-        <button id="setup-btn">設定</button>
-        <button id="camera-btn">カメラ</button>
-        <button id="capture-btn">撮影</button>
-        <button id="save-panel-btn" style="display:none;">記録</button>
-        <button id="reset-btn">消去</button>
-        <button id="album-btn">履歴</button>
-    </div>
-
-    <div id="setup-modal" class="modal">
-        <div class="modal-content">
-            <h3>基準設定（重要）</h3>
-            <p style="font-size:12px; color:#ccc;">カメラを引いたりズームした後は必ず設定してください。10円玉などの長さを入力し、その両端をドラッグで指定します。</p>
-            <input type="number" id="base-length" value="2.35" step="0.01">
-            <button id="setup-confirm" style="width:100%; padding:15px; background:var(--save);">この距離で計算する</button>
-            <button id="setup-reset-btn" style="width:100%; margin-top:10px; background:var(--danger);">標準倍率に戻す</button>
-            <button onclick="document.getElementById('setup-modal').style.display='none'" style="margin-top:10px; width:100%; background:#444;">閉じる</button>
-        </div>
+        <button id="camera-btn">📷カメラ</button>
+        <button id="capture-btn">📸撮影</button>
+        <button id="clear-btn">🔄クリア</button>
+        <button id="quick-save-btn">📝0.登録</button>
+        <button id="calibrate-mode-btn">📏1.補正</button>
+        <button id="measure-mode-btn">🐟2.測定</button>
+        <button id="save-panel-btn">📝3.登録</button>
+        <button id="album-btn" style="background:#444;">履歴</button>
     </div>
 
     <div id="save-modal" class="modal">
         <div class="modal-content">
-            <h3>釣果の記録</h3>
-            <input type="text" id="fish-type" placeholder="魚種">
-            <textarea id="memo" placeholder="備考" rows="3"></textarea>
-            <div style="display: flex; gap: 10px;">
-                <button id="final-save-btn" style="flex:1; background:var(--save);">保存</button>
-                <button id="download-btn" style="flex:1; background:#fd7e14;">画像保存</button>
-            </div>
-            <button onclick="document.getElementById('save-modal').style.display='none'" style="margin-top:10px; width:100%; background:#444;">戻る</button>
+            <h3>釣果の登録</h3>
+            <div id="auto-data-display" style="background:#111; padding:10px; border-radius:8px; font-size:13px; margin-bottom:10px; color:var(--accent); white-space: pre-wrap;"></div>
+            <input type="text" id="fish-type" placeholder="魚種（空欄でもOK）">
+            <textarea id="memo-field" rows="2" placeholder="備考"></textarea>
+            <button id="final-save-btn" style="width:100%; padding:15px; background:var(--save); color:white; font-weight:bold; border-radius:8px;">アルバムに保存</button>
+            <button id="close-save-btn" style="margin-top:10px; width:100%; background:#444; color:white; padding:10px; border:none; border-radius:8px;">戻る</button>
+        </div>
+    </div>
+
+    <div id="calib-modal" class="modal" style="justify-content:center;">
+        <div class="modal-content">
+            <h3>基準の長さ(cm)</h3>
+            <input type="number" id="real-length" value="10.0" step="0.1">
+            <button id="calib-confirm" style="width:100%; padding:15px; background:var(--save); color:white; font-weight:bold; border-radius:8px;">OK</button>
         </div>
     </div>
 
     <div id="album-view" class="modal">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>釣果履歴</h2>
-            <button id="clear-all-btn" style="background:var(--danger); font-size:12px;">全消去</button>
-        </div>
+        <h2>釣果履歴</h2>
         <div id="album-list"></div>
-        <button onclick="document.getElementById('album-view').style.display='none'" style="margin-top:20px; padding:15px; background:#444; width:100%;">戻る</button>
+        <button id="close-album-btn" style="padding:15px; background:#444; border:none; color:white; border-radius:8px; margin-top:10px; width:100%;">閉じる</button>
     </div>
 
     <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const sizeDisplay = document.getElementById('size-display');
-        let points = [], currentImage = null, ratio = 0.15;
-        let isDragging = false, dragPointIndex = -1;
-        let currentAddr = "不明", tideData = "";
+        const video = document.getElementById('video'), canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
+        const sizeDisplay = document.getElementById('size-display'), modeLabel = document.getElementById('mode-label');
+        const savePanelBtn = document.getElementById('save-panel-btn'), quickSaveBtn = document.getElementById('quick-save-btn');
+        let points = [], currentImageRaw = null, ratio = 1, mode = 'WAIT', isDragging = false, dragPointIndex = -1, autoAddr = "", autoTide = "";
 
-        // 潮汐・位置情報
-        function getTideInfo() {
-            const now = new Date();
-            const baseDate = new Date(2026, 0, 19);
-            const moonAge = ((now - baseDate) / (1000*60*60*24)) % 29.53;
-            let name = (moonAge < 2 || moonAge >= 28 || (moonAge >= 14 && moonAge < 16)) ? "大潮" : 
-                       (moonAge < 6 || (moonAge >= 11 && moonAge < 14) || (moonAge >= 16 && moonAge < 20) || moonAge >= 25) ? "中潮" : "小潮";
-            const hours = now.getHours() + (now.getMinutes()/60);
-            const phase = Math.sin((hours/12.4) * Math.PI * 2);
-            const isRising = Math.sin(((hours+0.1)/12.4) * Math.PI * 2) > phase;
-            const p = Math.abs(Math.round(phase * 10));
-            return `${name} (${isRising ? '上げ' : '下げ'}${p === 0 ? '止まり' : p + '分'})`;
+        function getXY(e) {
+            const r = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: (clientX - r.left) * (canvas.width / r.width), y: (clientY - r.top) * (canvas.height / r.height) };
         }
 
-        navigator.geolocation.getCurrentPosition(async (pos) => {
+        async function startCamera() {
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-                const data = await res.json();
-                currentAddr = data.address.city || data.address.town || "不明";
-            } catch(e) {}
-        });
+                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                video.srcObject = s; video.style.display = 'block'; canvas.style.display = 'none';
+                resetStates();
+                modeLabel.innerText = "撮影してください";
+            } catch (e) { alert("カメラ許可が必要です"); }
+        }
+        document.getElementById('camera-btn').addEventListener('click', startCamera);
 
-        // カメラ・撮影
-        document.getElementById('camera-btn').addEventListener('click', async () => {
-            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            video.srcObject = s; video.style.display = 'block'; canvas.style.display = 'none';
-            document.getElementById('save-panel-btn').style.display = 'none';
+        function resetStates() {
+            points = []; currentImageRaw = null; ratio = 1; mode = 'WAIT';
+            sizeDisplay.innerText = "--- cm";
+            document.getElementById('calibrate-mode-btn').style.display = 'none';
+            document.getElementById('measure-mode-btn').style.display = 'none';
+            savePanelBtn.style.display = 'none';
+            quickSaveBtn.style.display = 'none';
+        }
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            resetStates(); video.style.display = 'block'; canvas.style.display = 'none';
+            modeLabel.innerText = "リセット完了";
         });
 
         document.getElementById('capture-btn').addEventListener('click', () => {
+            if(!video.videoWidth) return;
             canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0); currentImage = canvas.toDataURL('image/jpeg');
+            ctx.drawImage(video, 0, 0); currentImageRaw = canvas.toDataURL('image/jpeg');
             video.style.display = 'none'; canvas.style.display = 'block';
-            document.getElementById('save-panel-btn').style.display = 'inline-block';
-            tideData = getTideInfo();
-        });
-
-        // ドラッグ計測ロジック
-        function getXY(e) {
-            const r = canvas.getBoundingClientRect();
-            const sx = canvas.width / r.width, sy = canvas.height / r.height;
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return { x: (clientX - r.left) * sx, y: (clientY - r.top) * sy };
-        }
-
-        canvas.addEventListener('pointerdown', (e) => {
-            if(!currentImage && document.getElementById('setup-modal').style.display !== 'flex') return;
-            const pos = getXY(e);
-            dragPointIndex = points.findIndex(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 40);
-            if (dragPointIndex === -1) {
-                if (points.length >= 2) points = [];
-                points.push(pos);
-                dragPointIndex = points.length - 1;
-            }
-            isDragging = true;
-            canvas.setPointerCapture(e.pointerId);
-        });
-
-        canvas.addEventListener('pointermove', (e) => {
-            if (!isDragging || dragPointIndex === -1) return;
-            points[dragPointIndex] = getXY(e);
+            
+            // 撮影直後にクイック登録と補正ボタンを両方出す
+            quickSaveBtn.style.display = 'inline-block';
+            document.getElementById('calibrate-mode-btn').style.display = 'inline-block';
+            modeLabel.innerText = "0.ですぐ登録 か 1.で測定";
             draw();
         });
 
-        canvas.addEventListener('pointerup', () => { isDragging = false; dragPointIndex = -1; });
+        document.getElementById('calibrate-mode-btn').addEventListener('click', () => { 
+            mode = 'CALIBRATE'; points = []; quickSaveBtn.style.display = 'none'; draw(); 
+        });
+        document.getElementById('measure-mode-btn').addEventListener('click', () => { mode = 'MEASURE'; points = []; draw(); });
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if(mode === 'WAIT' || !currentImageRaw) return;
+            const pos = getXY(e);
+            dragPointIndex = points.findIndex(p => Math.hypot(p.x - pos.x, p.y - pos.y) < 60);
+            if (dragPointIndex === -1 && points.length < 2) { points.push(pos); dragPointIndex = points.length - 1; }
+            isDragging = true; canvas.setPointerCapture(e.pointerId); draw();
+        });
+
+        canvas.addEventListener('pointermove', (e) => { if (isDragging && dragPointIndex !== -1) { points[dragPointIndex] = getXY(e); draw(); } });
+        canvas.addEventListener('pointerup', () => {
+            isDragging = false;
+            if (points.length === 2) {
+                if (mode === 'CALIBRATE') document.getElementById('calib-modal').style.display = 'flex';
+                else if (mode === 'MEASURE') { savePanelBtn.style.display = 'inline-block'; modeLabel.innerText = "測定完了"; }
+            }
+        });
 
         function draw() {
-            if(!currentImage) { ctx.clearRect(0,0,canvas.width,canvas.height); return; }
-            const img = new Image(); img.src = currentImage;
+            const img = new Image(); img.src = currentImageRaw;
             img.onload = () => {
                 ctx.drawImage(img, 0, 0);
-                points.forEach((p, i) => {
-                    ctx.fillStyle = (i === dragPointIndex) ? 'yellow' : 'red';
-                    ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, Math.PI*2); ctx.fill();
+                const color = (mode === 'CALIBRATE') ? '#ffc107' : '#00ff00';
+                points.forEach(p => {
+                    ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, Math.PI*2); ctx.fill();
                 });
                 if(points.length === 2){
-                    ctx.strokeStyle = '#00ff00'; ctx.lineWidth = 10; ctx.beginPath();
-                    ctx.moveTo(points[0].x, points[0].y); ctx.lineTo(points[1].x, points[1].y); ctx.stroke();
-                    sizeDisplay.innerText = (Math.hypot(points[1].x-points[0].x, points[1].y-points[0].y)*ratio).toFixed(1) + " cm";
+                    ctx.strokeStyle = color; ctx.lineWidth = 6;
+                    ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y); ctx.lineTo(points[1].x, points[1].y); ctx.stroke();
+                    if(mode === 'MEASURE') sizeDisplay.innerText = (Math.hypot(points[1].x-points[0].x, points[1].y-points[0].y)*ratio).toFixed(1) + " cm";
                 }
             };
         }
 
-        // 設定
-        document.getElementById('setup-confirm').addEventListener('click', () => {
-            if(points.length === 2){
-                ratio = parseFloat(document.getElementById('base-length').value) / Math.hypot(points[1].x-points[0].x, points[1].y-points[0].y);
-                alert("この写真の距離を基準に設定しました。");
-                document.getElementById('setup-modal').style.display='none';
-                points = []; draw();
-            } else { alert("基準物の両端をタップしてください"); }
+        document.getElementById('calib-confirm').addEventListener('click', () => {
+            ratio = parseFloat(document.getElementById('real-length').value) / Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y);
+            document.getElementById('calib-modal').style.display = 'none';
+            document.getElementById('measure-mode-btn').style.display = 'inline-block';
         });
-        document.getElementById('setup-reset-btn').addEventListener('click', () => { ratio = 0.15; alert("リセットしました"); });
 
-        // 保存・履歴
-        document.getElementById('setup-btn').addEventListener('click', () => document.getElementById('setup-modal').style.display = 'flex');
-        document.getElementById('save-panel-btn').addEventListener('click', () => document.getElementById('save-modal').style.display = 'flex');
+        // 共通保存モーダル呼び出し
+        const openSaveModal = async () => {
+            autoTide = calculateTide();
+            document.getElementById('save-modal').style.display = 'flex';
+            autoAddr = await fetchLocation();
+            const dispSize = (sizeDisplay.innerText === "--- cm") ? "未計測" : sizeDisplay.innerText;
+            document.getElementById('auto-data-display').innerText = `サイズ: ${dispSize}\n潮位: ${autoTide}\n住所: ${autoAddr}`;
+        };
+
+        savePanelBtn.addEventListener('click', openSaveModal);
+        quickSaveBtn.addEventListener('click', openSaveModal);
+
         document.getElementById('final-save-btn').addEventListener('click', () => {
-            const item = { id: Date.now(), img: canvas.toDataURL('image/jpeg'), size: sizeDisplay.innerText, fish: document.getElementById('fish-type').value || "不明", memo: document.getElementById('memo').value || "", tide: tideData, addr: currentAddr, date: new Date().toLocaleString() };
-            const h = JSON.parse(localStorage.getItem('fish_v5') || '[]');
-            h.unshift(item); localStorage.setItem('fish_v5', JSON.stringify(h));
-            alert('保存しました'); document.getElementById('save-modal').style.display = 'none';
+            const item = {
+                id: Date.now(), img: currentImageRaw, size: sizeDisplay.innerText,
+                fish: document.getElementById('fish-type').value || "記録", addr: autoAddr, tide: autoTide,
+                memo: document.getElementById('memo-field').value, date: new Date().toLocaleString()
+            };
+            const h = JSON.parse(localStorage.getItem('fish_v10') || '[]');
+            h.unshift(item); localStorage.setItem('fish_v10', JSON.stringify(h));
+            alert('保存完了！');
+            document.getElementById('save-modal').style.display = 'none';
+            startCamera();
         });
-        document.getElementById('download-btn').addEventListener('click', () => {
-            const a = document.createElement('a'); a.download = `fish_${Date.now()}.jpg`; a.href = canvas.toDataURL('image/jpeg'); a.click();
-        });
+
+        document.getElementById('close-save-btn').onclick = () => document.getElementById('save-modal').style.display = 'none';
+
         document.getElementById('album-btn').addEventListener('click', () => {
             const list = document.getElementById('album-list'); list.innerHTML = '';
-            const h = JSON.parse(localStorage.getItem('fish_v5') || '[]');
+            const h = JSON.parse(localStorage.getItem('fish_v10') || '[]');
             h.forEach(i => {
                 const d = document.createElement('div'); d.className = 'album-item';
-                d.innerHTML = `<img src="${i.img}"><div style="font-size:12px;"><b>${i.fish} (${i.size})</b><br>📅 ${i.date}<br>🌊 ${i.tide}<br>📍 ${i.addr}<br>📝 ${i.memo}</div><button onclick="del(${i.id})" style="background:var(--danger); padding:5px;">×</button>`;
+                const s = i.size === "--- cm" ? "（未計測）" : i.size;
+                d.innerHTML = `<img src="${i.img}" class="album-img"><div class="album-info"><div><b>${i.fish} ${s}</b><br>${i.tide}<br>${i.addr}</div><div style="display:flex;gap:4px;"><button style="flex:1;background:#555;padding:4px;font-size:10px;" onclick="downloadImg('${i.img}','${i.fish}')">保存</button><button style="flex:1;background:var(--danger);padding:4px;font-size:10px;" onclick="deleteItem(${i.id})">削除</button></div></div>`;
                 list.appendChild(d);
             });
             document.getElementById('album-view').style.display = 'flex';
         });
-        window.del = (id) => { if(confirm('消去しますか？')){ let h = JSON.parse(localStorage.getItem('fish_v5')); h = h.filter(x => x.id !== id); localStorage.setItem('fish_v5', JSON.stringify(h)); document.getElementById('album-btn').click(); } };
-        document.getElementById('reset-btn').addEventListener('click', () => { points = []; draw(); sizeDisplay.innerText = "0.0 cm"; });
-        document.getElementById('clear-all-btn').addEventListener('click', () => { if(confirm('全消去しますか？')) { localStorage.removeItem('fish_v5'); document.getElementById('album-view').style.display='none'; } });
+
+        document.getElementById('close-album-btn').onclick = () => document.getElementById('album-view').style.display = 'none';
+        window.downloadImg = (url, name) => { const a = document.createElement('a'); a.href = url; a.download = `${name}.jpg`; a.click(); };
+        window.deleteItem = (id) => { if(confirm('消去しますか？')){ let h = JSON.parse(localStorage.getItem('fish_v10')||'[]'); h = h.filter(x => x.id !== id); localStorage.setItem('fish_v10', JSON.stringify(h)); document.getElementById('album-btn').click(); } };
+
+        function calculateTide() {
+            const now = new Date(); const age = ((now - new Date(2026,0,19))/(1000*3600*24))%29.53;
+            let n = "中潮"; if(age<2||age>=28||(age>=14&&age<16)) n="大潮"; else if(age>=8&&age<10) n="長潮";
+            const h = now.getHours()+(now.getMinutes()/60); const ph = Math.sin((h/12.42)*Math.PI*2);
+            return `${n} ${Math.sin(((h+0.5)/12.42)*Math.PI*2)>ph?'上げ':'下げ'}${Math.abs(Math.round(ph*10))}部`;
+        }
+        async function fetchLocation() {
+            return new Promise(r => {
+                navigator.geolocation.getCurrentPosition(async p => {
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}`, {headers:{'Accept-Language':'ja'}});
+                        const d = await res.json(); 
+                        r(d.display_name.split(',').reverse().join('').replace(/日本|〒?\s?\d{3}-?\d{4}/g, '').trim());
+                    } catch(e) { r("住所不明"); }
+                }, () => r("位置情報なし"));
+            });
+        }
     </script>
 </body>
 </html>
